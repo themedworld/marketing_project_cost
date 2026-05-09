@@ -115,12 +115,11 @@ def predict(input_data: PredictInput):
 
         prediction = pipeline.predict(df)[0]
 
-        # sécurité
-        prediction = max(0, float(prediction))
+        print("RAW PREDICTION =", prediction)
 
         return {
-            "predictedBudget": round(prediction, 2)
-        }
+        "predictedBudget": float(prediction)
+         }
 
     except Exception as e:
 
