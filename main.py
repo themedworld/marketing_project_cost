@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any
 import pandas as pd
-import numpy as np
 import joblib
 import os
 
@@ -11,7 +10,7 @@ import os
 # CONFIG
 # =========================================
 
-MODEL_PATH = "./best_pipeline_xgb.joblib"
+MODEL_PATH = "best_pipeline_xgb.joblib"
 
 # =========================================
 # FASTAPI
@@ -51,7 +50,7 @@ class PredictInput(BaseModel):
 
 def normalize_multilabel(value):
 
-    if pd.isna(value):
+    if value is None:
         return ""
 
     value = (
@@ -92,14 +91,11 @@ def predict(input_data: PredictInput):
 
         data = input_data.data
 
-        # =========================
-        # DATAFRAME
-        # =========================
-
+        # DataFrame
         df = pd.DataFrame([data])
 
         # =========================
-        # NORMALIZE MULTI LABELS
+        # NORMALIZE MULTILABELS
         # =========================
 
         multilabel_cols = [
@@ -109,64 +105,21 @@ def predict(input_data: PredictInput):
         ]
 
         for col in multilabel_cols:
+
             if col in df.columns:
                 df[col] = df[col].apply(normalize_multilabel)
-
-        # =========================
-        # EXPECTED COLS
-        # =========================
-
-        expected_cols = []
-
-        try:
-
-            preproc = pipeline.named_steps.get("preproc")
-
-            if preproc is not None:
-
-                for name, transformer, cols in preproc.transformers_:
-
-                    if cols is not None:
-                        expected_cols += list(cols)
-
-        except Exception:
-            expected_cols = []
-
-        # =========================
-        # ALIGN COLUMNS
-        # =========================
-
-        if expected_cols:
-
-            for c in expected_cols:
-
-                if c not in df.columns:
-
-                    if c in [
-                        "estimatedDurationDays",
-                        "teamSize",
-                        "mediaBudget",
-                        "externalCosts",
-                        "fixedCosts",
-                        "contingencyPercent"
-                    ]:
-                        df[c] = 0.0
-                    else:
-                        df[c] = "missing"
-
-            X = df[expected_cols]
-
-        else:
-            X = df
 
         # =========================
         # PREDICTION
         # =========================
 
-        prediction = pipeline.predict(X)[0]
+        prediction = pipeline.predict(df)[0]
+
+        # sécurité
+        prediction = max(0, float(prediction))
 
         return {
-            "predictedBudget": float(prediction)
+            "predictedBudget": round(prediction, 2)
         }
 
     except Exception as e:
